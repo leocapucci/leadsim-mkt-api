@@ -110,7 +110,8 @@ def executar_campanha(tema: str, formatos: list[str], verbose: bool = True) -> d
     }
 
     # Salva JSON com a campanha
-    filename = f"campanha_{tema.lower().replace(' ', '_')}_{inicio.strftime('%Y%m%d_%H%M')}.json"
+    tema_slug = tema.lower().replace(' ', '_')[:50]
+    filename = f"campanha_{tema_slug}_{inicio.strftime('%Y%m%d_%H%M')}.json"
     output_path = os.path.join("output", filename)
     os.makedirs("output", exist_ok=True)
 
