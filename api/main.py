@@ -60,7 +60,6 @@ async def _rodar_pipeline(job_id: str, tema: str, formatos: list[str], clinica_i
             "notas_revisao": resultado["notas_revisao"],
             "tentativas": resultado["meta"]["tentativas"],
             "duracao_segundos": resultado["meta"]["duracao_segundos"],
-            "imagens": resultado.get("imagens", {}),
             "concluido_em": datetime.now().isoformat(),
         }).eq("id", job_id).execute()
 
@@ -131,6 +130,34 @@ async def listar_campanhas(clinica_id: Optional[str] = None, limite: int = 20, x
         return {"campanhas": result.data, "total": len(result.data)}
     except Exception as e:
         return {"campanhas": [], "total": 0}
+
+
+@app.post("/campanha/{job_id}/imagens")
+async def gerar_imagens_campanha(job_id: str, x_api_key: str = Header(None)):
+    verificar_api_key(x_api_key)
+    sb = _get_supabase()
+
+    result = sb.table("jobs_campanha").select("briefing, formatos, status").eq("id", job_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Job não encontrado")
+
+    job = result.data[0]
+    if job["status"] != "concluido":
+        raise HTTPException(status_code=400, detail=f"Job ainda não concluído (status: {job['status']})")
+
+    try:
+        from agente_imagens import AgenteImagens
+        agente = AgenteImagens()
+        imagens = await asyncio.to_thread(agente.gerar_para_campanha, job["briefing"], job["formatos"])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar imagens: {e}")
+
+    try:
+        sb.table("jobs_campanha").update({"imagens": imagens}).eq("id", job_id).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao salvar imagens: {e}")
+
+    return {"job_id": job_id, "imagens": imagens, "total": len(imagens)}
 
 
 @app.get("/campanha/{campanha_id}")

@@ -17,7 +17,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
-def executar_campanha(tema: str, formatos: list[str], verbose: bool = True, gerar_imagens: bool = True) -> dict:
+def executar_campanha(tema: str, formatos: list[str], verbose: bool = True) -> dict:
 
     separador = "-" * 55
     inicio = datetime.now()
@@ -26,12 +26,11 @@ def executar_campanha(tema: str, formatos: list[str], verbose: bool = True, gera
     print(f"  LeadSim MKT - Pipeline de Campanha")
     print(f"  Tema: {tema}")
     print(f"  Formatos: {', '.join(formatos)}")
-    print(f"  Imagens: {'sim' if gerar_imagens else 'nao'}")
     print(f"  Inicio: {inicio.strftime('%H:%M:%S')}")
     print(separador)
 
     # ETAPA 1: PESQUISA
-    print("\n[1/4] Pesquisando mercado...")
+    print("\n[1/3] Pesquisando mercado...")
     pesquisador = Pesquisador()
     briefing = pesquisador.pesquisar_tendencias(tema)
 
@@ -41,7 +40,7 @@ def executar_campanha(tema: str, formatos: list[str], verbose: bool = True, gera
         print(briefing)
 
     # ETAPA 2: GERAÇÃO DE CONTEÚDO
-    print("\n[2/4] Gerando conteudo...")
+    print("\n[2/3] Gerando conteudo...")
     copywriter = Copywriter()
     resultado_copy = copywriter.gerar_conteudo(briefing, formatos)
     conteudo_inicial = resultado_copy["raw"]
@@ -51,22 +50,8 @@ def executar_campanha(tema: str, formatos: list[str], verbose: bool = True, gera
         print("CONTEUDO INICIAL:")
         print(conteudo_inicial)
 
-    # ETAPA 3: GERAÇÃO DE IMAGENS
-    imagens = {}
-    if gerar_imagens and os.getenv("OPENAI_API_KEY"):
-        print("\n[3/4] Gerando imagens...")
-        try:
-            from agente_imagens import AgenteImagens
-            agente_imgs = AgenteImagens()
-            imagens = agente_imgs.gerar_para_campanha(briefing, formatos)
-        except Exception as e:
-            print(f"  Aviso: erro no agente de imagens: {e}")
-            imagens = {}
-    else:
-        print("\n[3/4] Imagens puladas (OPENAI_API_KEY nao configurada)")
-
-    # ETAPA 4: REVISÃO
-    print("\n[4/4] Revisando conteudo...")
+    # ETAPA 3: REVISÃO
+    print("\n[3/3] Revisando conteudo...")
     revisor = Revisor()
     resultado_revisao = revisor.revisar_com_reescrita(
         conteudo=conteudo_inicial,
@@ -83,7 +68,6 @@ def executar_campanha(tema: str, formatos: list[str], verbose: bool = True, gera
     print(f"\n{separador}")
     print(f"  CAMPANHA CONCLUIDA")
     print(f"  Score: {score}/10")
-    print(f"  Imagens geradas: {len(imagens)}")
     print(f"  Duracao total: {duracao}s")
     print(separador)
 
@@ -101,7 +85,6 @@ def executar_campanha(tema: str, formatos: list[str], verbose: bool = True, gera
         "conteudo_final": conteudo_final,
         "notas_revisao": resultado_revisao.get("notas_revisao", ""),
         "problemas_encontrados": resultado_revisao.get("problemas", []),
-        "imagens": imagens,
     }
 
     # Salva JSON
@@ -123,12 +106,10 @@ if __name__ == "__main__":
     parser.add_argument("--formatos", nargs="+", default=["instagram", "whatsapp"],
                         choices=["instagram", "email", "whatsapp", "stories"])
     parser.add_argument("--silencioso", action="store_true")
-    parser.add_argument("--sem-imagens", action="store_true")
 
     args = parser.parse_args()
     executar_campanha(
         tema=args.tema,
         formatos=args.formatos,
         verbose=not args.silencioso,
-        gerar_imagens=not args.sem_imagens
     )
