@@ -1,3 +1,4 @@
+import asyncio
 import os
 import json
 import uuid
@@ -39,11 +40,16 @@ def health():
 @app.post("/campanha")
 async def gerar_campanha(req: CampanhaRequest, x_api_key: str = Header(None)):
     verificar_api_key(x_api_key)
-    from pipeline import executar_campanha
     formatos_validos = {"instagram", "email", "whatsapp", "stories"}
     formatos = [f for f in req.formatos if f in formatos_validos] or ["instagram", "email", "whatsapp"]
     try:
-        resultado = executar_campanha(tema=req.tema, formatos=formatos, verbose=False)
+        from pipeline import executar_campanha as _exec
+        resultado = await asyncio.wait_for(
+            asyncio.to_thread(_exec, req.tema, formatos, False),
+            timeout=90.0,
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Pipeline timeout — tente novamente com menos formatos")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     campanha_id = str(uuid.uuid4())

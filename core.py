@@ -124,7 +124,7 @@ Quando receber uma tarefa, execute-a de forma completa e entregue o resultado fi
 
         response = client.messages.create(
             model=MODEL,
-            max_tokens=8096,
+            max_tokens=4096,
             system=self.system_prompt,
             messages=self.history
         )

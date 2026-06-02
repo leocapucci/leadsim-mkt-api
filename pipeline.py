@@ -31,8 +31,11 @@ def executar_campanha(tema: str, formatos: list[str], verbose: bool = True) -> d
 
     Retorna dicionário com tudo que foi produzido.
     """
+    import sys
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-    separador = "─" * 55
+    separador = "-" * 55
     inicio = datetime.now()
 
     print(f"\n{separador}")
