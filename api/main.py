@@ -1,11 +1,10 @@
 import asyncio
 import os
-import json
 import uuid
 from datetime import datetime
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -22,53 +21,109 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 class CampanhaRequest(BaseModel):
     tema: str
     formatos: list[str] = ["instagram", "email", "whatsapp"]
     clinica_id: Optional[str] = None
     clinica_nome: Optional[str] = None
 
+
 def verificar_api_key(x_api_key: str = Header(None)):
     expected = os.getenv("LEADSIM_INTERNAL_KEY", "leadsim-dev-key")
     if x_api_key != expected:
         raise HTTPException(status_code=401, detail="Chave inválida")
 
+
+def _get_supabase():
+    from supabase import create_client
+    return create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+
+
+async def _rodar_pipeline(job_id: str, tema: str, formatos: list[str], clinica_id: Optional[str]):
+    """Roda o pipeline em background e persiste o resultado no Supabase."""
+    sb = _get_supabase()
+
+    # Marca job como em progresso
+    sb.table("jobs_campanha").update({"status": "processando"}).eq("id", job_id).execute()
+
+    try:
+        from pipeline import executar_campanha as _exec
+        resultado = await asyncio.to_thread(_exec, tema, formatos, False)
+
+        sb.table("jobs_campanha").update({
+            "status": "concluido",
+            "briefing": resultado["briefing"],
+            "conteudo_final": resultado["conteudo_final"],
+            "score": resultado["meta"]["score_final"],
+            "aprovado": resultado["meta"]["aprovado"],
+            "notas_revisao": resultado["notas_revisao"],
+            "tentativas": resultado["meta"]["tentativas"],
+            "duracao_segundos": resultado["meta"]["duracao_segundos"],
+            "concluido_em": datetime.now().isoformat(),
+        }).eq("id", job_id).execute()
+
+    except Exception as e:
+        sb.table("jobs_campanha").update({
+            "status": "erro",
+            "erro": str(e)[:500],
+        }).eq("id", job_id).execute()
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "timestamp": datetime.now().isoformat()}
 
+
 @app.post("/campanha")
-async def gerar_campanha(req: CampanhaRequest, x_api_key: str = Header(None)):
+async def gerar_campanha(req: CampanhaRequest, background_tasks: BackgroundTasks, x_api_key: str = Header(None)):
     verificar_api_key(x_api_key)
+
     formatos_validos = {"instagram", "email", "whatsapp", "stories"}
     formatos = [f for f in req.formatos if f in formatos_validos] or ["instagram", "email", "whatsapp"]
+
+    job_id = str(uuid.uuid4())
+    criado_em = datetime.now().isoformat()
+
     try:
-        from pipeline import executar_campanha as _exec
-        resultado = await asyncio.wait_for(
-            asyncio.to_thread(_exec, req.tema, formatos, False),
-            timeout=90.0,
-        )
-    except asyncio.TimeoutError:
-        raise HTTPException(status_code=504, detail="Pipeline timeout — tente novamente com menos formatos")
+        sb = _get_supabase()
+        sb.table("jobs_campanha").insert({
+            "id": job_id,
+            "status": "pendente",
+            "tema": req.tema,
+            "formatos": formatos,
+            "clinica_id": req.clinica_id,
+            "criado_em": criado_em,
+        }).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao criar job: {e}")
+
+    background_tasks.add_task(_rodar_pipeline, job_id, req.tema, formatos, req.clinica_id)
+
+    return {"job_id": job_id, "status": "pendente", "criado_em": criado_em}
+
+
+@app.get("/campanha/status/{job_id}")
+async def status_campanha(job_id: str, x_api_key: str = Header(None)):
+    verificar_api_key(x_api_key)
+    try:
+        sb = _get_supabase()
+        result = sb.table("jobs_campanha").select("*").eq("id", job_id).execute()
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Job não encontrado")
+        return result.data[0]
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    campanha_id = str(uuid.uuid4())
-    criado_em = datetime.now().isoformat()
-    try:
-        from supabase import create_client
-        sb = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
-        sb.table("campanhas_mkt").insert({"id": campanha_id, "tema": req.tema, "formatos": formatos, "briefing": resultado["briefing"], "conteudo_final": resultado["conteudo_final"], "score": resultado["meta"]["score_final"], "aprovado": resultado["meta"]["aprovado"], "notas_revisao": resultado["notas_revisao"], "tentativas": resultado["meta"]["tentativas"], "duracao_segundos": resultado["meta"]["duracao_segundos"], "clinica_id": req.clinica_id, "criado_em": criado_em}).execute()
-    except:
-        pass
-    return {"id": campanha_id, "status": "concluida", "score": resultado["meta"]["score_final"], "aprovado": resultado["meta"]["aprovado"], "tema": req.tema, "formatos": formatos, "briefing": resultado["briefing"], "conteudo_final": resultado["conteudo_final"], "notas_revisao": resultado["notas_revisao"], "tentativas": resultado["meta"]["tentativas"], "duracao_segundos": resultado["meta"]["duracao_segundos"], "criado_em": criado_em, "clinica_id": req.clinica_id}
+
 
 @app.get("/campanhas")
 async def listar_campanhas(clinica_id: Optional[str] = None, limite: int = 20, x_api_key: str = Header(None)):
     verificar_api_key(x_api_key)
     try:
-        from supabase import create_client
-        sb = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
-        query = sb.table("campanhas_mkt").select("*").order("criado_em", desc=True).limit(limite)
+        sb = _get_supabase()
+        query = sb.table("jobs_campanha").select("*").order("criado_em", desc=True).limit(limite)
         if clinica_id:
             query = query.eq("clinica_id", clinica_id)
         result = query.execute()
@@ -76,13 +131,13 @@ async def listar_campanhas(clinica_id: Optional[str] = None, limite: int = 20, x
     except Exception as e:
         return {"campanhas": [], "total": 0}
 
+
 @app.get("/campanha/{campanha_id}")
 async def buscar_campanha(campanha_id: str, x_api_key: str = Header(None)):
     verificar_api_key(x_api_key)
     try:
-        from supabase import create_client
-        sb = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
-        result = sb.table("campanhas_mkt").select("*").eq("id", campanha_id).execute()
+        sb = _get_supabase()
+        result = sb.table("jobs_campanha").select("*").eq("id", campanha_id).execute()
         if not result.data:
             raise HTTPException(status_code=404, detail="Não encontrada")
         return result.data[0]
