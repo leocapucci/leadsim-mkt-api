@@ -60,6 +60,7 @@ async def _rodar_pipeline(job_id: str, tema: str, formatos: list[str], clinica_i
             "notas_revisao": resultado["notas_revisao"],
             "tentativas": resultado["meta"]["tentativas"],
             "duracao_segundos": resultado["meta"]["duracao_segundos"],
+            "imagens": resultado.get("imagens", {}),
             "concluido_em": datetime.now().isoformat(),
         }).eq("id", job_id).execute()
 
