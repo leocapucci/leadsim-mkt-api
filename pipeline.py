@@ -72,7 +72,7 @@ def executar_campanha(tema: str, formatos: list[str], verbose: bool = True) -> d
     resultado_revisao = revisor.revisar_com_reescrita(
         conteudo=conteudo_inicial,
         briefing=briefing,
-        max_tentativas=2
+        max_tentativas=1
     )
 
     # ── RESULTADO FINAL ────────────────────
