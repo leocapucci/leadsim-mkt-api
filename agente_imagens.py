@@ -132,7 +132,7 @@ Inclua apenas os formatos solicitados: {', '.join(formatos)}"""
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model": "dall-e-2",
+                    "model": "gpt-image-2",
                     "prompt": prompt,
                     "n": 1,
                     "size": size,
