@@ -35,12 +35,12 @@ FORMATOS_CONFIG = {
         "descricao": "imagem para mensagem de WhatsApp"
     },
     "stories": {
-        "size": "1024x1792",
+        "size": "1024x1024",
         "quantidade": 2,
         "descricao": "stories vertical para Instagram/WhatsApp"
     },
     "email": {
-        "size": "1792x1024",
+        "size": "1024x1024",
         "quantidade": 1,
         "descricao": "banner horizontal para e-mail marketing"
     }
