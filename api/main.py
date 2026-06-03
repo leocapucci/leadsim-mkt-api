@@ -132,8 +132,19 @@ async def listar_campanhas(clinica_id: Optional[str] = None, limite: int = 20, x
         return {"campanhas": [], "total": 0}
 
 
+async def _gerar_e_salvar_imagens(job_id: str, briefing: str, formatos: list[str]):
+    """Gera imagens em background e persiste no Supabase ao concluir."""
+    try:
+        from agente_imagens import AgenteImagens
+        agente = AgenteImagens()
+        imagens = await asyncio.to_thread(agente.gerar_para_campanha, briefing, formatos)
+        _get_supabase().table("jobs_campanha").update({"imagens": imagens}).eq("id", job_id).execute()
+    except Exception as e:
+        print(f"[imagens] erro no background para job {job_id}: {e}")
+
+
 @app.post("/campanha/{job_id}/imagens")
-async def gerar_imagens_campanha(job_id: str, x_api_key: str = Header(None)):
+async def gerar_imagens_campanha(job_id: str, background_tasks: BackgroundTasks, x_api_key: str = Header(None)):
     verificar_api_key(x_api_key)
     sb = _get_supabase()
 
@@ -145,19 +156,9 @@ async def gerar_imagens_campanha(job_id: str, x_api_key: str = Header(None)):
     if job["status"] != "concluido":
         raise HTTPException(status_code=400, detail=f"Job ainda não concluído (status: {job['status']})")
 
-    try:
-        from agente_imagens import AgenteImagens
-        agente = AgenteImagens()
-        imagens = await asyncio.to_thread(agente.gerar_para_campanha, job["briefing"], job["formatos"])
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao gerar imagens: {e}")
+    background_tasks.add_task(_gerar_e_salvar_imagens, job_id, job["briefing"], job["formatos"])
 
-    try:
-        sb.table("jobs_campanha").update({"imagens": imagens}).eq("id", job_id).execute()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao salvar imagens: {e}")
-
-    return {"job_id": job_id, "imagens": imagens, "total": len(imagens)}
+    return {"job_id": job_id, "status": "gerando"}
 
 
 @app.get("/campanha/{campanha_id}")
