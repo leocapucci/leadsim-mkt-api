@@ -136,7 +136,7 @@ Inclua apenas os formatos solicitados: {', '.join(formatos)}"""
                     "prompt": prompt,
                     "n": 1,
                     "size": size,
-                    "quality": "standard"
+                    "quality": "auto"
                 },
                 timeout=60
             )
