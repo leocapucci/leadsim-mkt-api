@@ -138,7 +138,7 @@ Inclua apenas os formatos solicitados: {', '.join(formatos)}"""
                     "size": size,
                     "quality": "auto"
                 },
-                timeout=60
+                timeout=200
             )
 
             if response.status_code == 200:
