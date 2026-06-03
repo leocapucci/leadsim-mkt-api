@@ -176,6 +176,20 @@ async def gerar_imagens_campanha(job_id: str, background_tasks: BackgroundTasks,
     return {"job_id": job_id, "status": "gerando"}
 
 
+@app.get("/admin/testar-automacao")
+async def testar_automacao(x_api_key: str = Header(None)):
+    verificar_api_key(x_api_key)
+    import io, contextlib
+    from cron.automacao import run_automacao
+    buffer = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buffer):
+            await asyncio.to_thread(run_automacao)
+        return {"status": "ok", "log": buffer.getvalue()}
+    except Exception as e:
+        return {"status": "erro", "log": buffer.getvalue(), "erro": str(e)}
+
+
 @app.get("/campanha/{campanha_id}")
 async def buscar_campanha(campanha_id: str, x_api_key: str = Header(None)):
     verificar_api_key(x_api_key)
