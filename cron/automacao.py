@@ -86,6 +86,24 @@ def marcar_aguardando_aprovacao(job_id: str) -> None:
     )
 
 
+def marcar_job_erro(job_id: str, erro: str) -> None:
+    requests.patch(
+        f"{SUPABASE_URL}/rest/v1/jobs_campanha",
+        headers={**_sb_headers(), "Prefer": "return=minimal"},
+        params={"id": f"eq.{job_id}"},
+        json={"status": "erro", "erro": erro[:500]},
+    )
+
+
+def marcar_erro_whatsapp(job_id: str) -> None:
+    requests.patch(
+        f"{SUPABASE_URL}/rest/v1/jobs_campanha",
+        headers={**_sb_headers(), "Prefer": "return=minimal"},
+        params={"id": f"eq.{job_id}"},
+        json={"status": "aguardando_aprovacao", "erro": "WhatsApp não entregue — aprovação manual necessária"},
+    )
+
+
 # ─────────────────────────────────────────
 # LÓGICA DE TEMA
 # ─────────────────────────────────────────
@@ -211,6 +229,7 @@ def run_automacao():
 
         print(f"  Tema escolhido: {tema}")
 
+        job_id = None
         try:
             job_id = criar_campanha(tema, formatos, cid)
             print(f"  Job criado: {job_id}")
@@ -223,7 +242,16 @@ def run_automacao():
 
             if tel:
                 ok = enviar_whatsapp(tel, nome, tema, job.get("conteudo_final", ""), job_id)
-                print(f"  WhatsApp {'✓ enviado' if ok else 'FALHOU'} → {tel}")
+                if not ok:
+                    print(f"  WhatsApp FALHOU — aguardando 30s e tentando novamente...")
+                    time.sleep(30)
+                    ok = enviar_whatsapp(tel, nome, tema, job.get("conteudo_final", ""), job_id)
+
+                if ok:
+                    print(f"  WhatsApp ✓ enviado → {tel}")
+                else:
+                    print(f"  WhatsApp FALHOU após 2 tentativas — marcando erro_whatsapp")
+                    marcar_erro_whatsapp(job_id)
             else:
                 print("  Sem whatsapp_responsavel configurado.")
 
@@ -232,6 +260,8 @@ def run_automacao():
 
         except Exception as e:
             print(f"  ERRO: {e}\n")
+            if job_id:
+                marcar_job_erro(job_id, str(e))
 
 
 if __name__ == "__main__":
