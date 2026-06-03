@@ -16,6 +16,18 @@ app = FastAPI()
 from api.routes.aprovacao import router as aprovacao_router
 app.include_router(aprovacao_router)
 
+
+@app.on_event("startup")
+def startup_scheduler():
+    from cron.scheduler import start_scheduler
+    start_scheduler()
+
+
+@app.on_event("shutdown")
+def shutdown_scheduler():
+    from cron.scheduler import stop_scheduler
+    stop_scheduler()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://leadsim-beauty.vercel.app", "http://localhost:3000"],
