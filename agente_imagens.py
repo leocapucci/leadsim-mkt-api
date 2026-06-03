@@ -18,8 +18,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
 
 # ─────────────────────────────────────────
 # CONFIGURAÇÕES POR FORMATO
@@ -121,7 +119,8 @@ Inclua apenas os formatos solicitados: {', '.join(formatos)}"""
 
     def gerar_imagem(self, prompt: str, size: str = "1024x1024") -> str | None:
         """Gera uma imagem via DALL-E 3 e retorna a URL."""
-        if not OPENAI_API_KEY:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
             print("  [!] OPENAI_API_KEY nao configurada — pulando imagens")
             return None
 
@@ -129,7 +128,7 @@ Inclua apenas os formatos solicitados: {', '.join(formatos)}"""
             response = requests.post(
                 "https://api.openai.com/v1/images/generations",
                 headers={
-                    "Authorization": f"Bearer {OPENAI_API_KEY}",
+                    "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json"
                 },
                 json={
