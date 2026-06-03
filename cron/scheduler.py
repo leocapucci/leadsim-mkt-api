@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("leadsim.scheduler")
@@ -35,6 +36,15 @@ def _job_automacao():
         logger.info("[scheduler] run_automacao concluída.")
     except Exception as e:
         logger.error(f"[scheduler] Erro em run_automacao: {e}")
+
+
+def _job_publicador():
+    logger.info("[scheduler] Verificando publicações agendadas...")
+    try:
+        from cron.publicador import run_publicador
+        run_publicador()
+    except Exception as e:
+        logger.error(f"[scheduler] Erro em run_publicador: {e}")
 
 
 def start_scheduler() -> BackgroundScheduler:
@@ -82,8 +92,17 @@ def start_scheduler() -> BackgroundScheduler:
         replace_existing=True,
     )
 
+    # Publicador — a cada 5 minutos
+    _scheduler.add_job(
+        _job_publicador,
+        trigger=IntervalTrigger(minutes=5),
+        id="publicador_5min",
+        name="Publicador Instagram 5min",
+        replace_existing=True,
+    )
+
     _scheduler.start()
-    logger.info("[scheduler] APScheduler iniciado com 4 jobs agendados.")
+    logger.info("[scheduler] APScheduler iniciado com 5 jobs agendados (4 automação + 1 publicador).")
     return _scheduler
 
 
