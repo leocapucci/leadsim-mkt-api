@@ -199,6 +199,8 @@ Retorne EXATAMENTE neste formato JSON (sem markdown, sem explicações fora do J
             import json, re
             # Remove possível markdown code block
             clean = re.sub(r"```json|```", "", resultado_raw).strip()
+            # Remove backticks em torno de valores numéricos (ex: "score": `6` → "score": 6)
+            clean = re.sub(r":\s*`(\d+(?:\.\d+)?)`", r": \1", clean)
             resultado = json.loads(clean)
         except Exception:
             # Se falhar o parse, retorna estrutura manual

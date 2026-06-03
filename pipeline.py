@@ -62,7 +62,12 @@ def executar_campanha(tema: str, formatos: list[str], verbose: bool = True) -> d
     # RESULTADO FINAL
     duracao = (datetime.now() - inicio).seconds
     aprovado = resultado_revisao.get("aprovado", False)
-    score = resultado_revisao.get("score", 0)
+    _score_raw = resultado_revisao.get("score", 0)
+    if isinstance(_score_raw, str):
+        import re as _re
+        score = float(_re.sub(r"[^0-9.]", "", _score_raw) or "0")
+    else:
+        score = float(_score_raw or 0)
     conteudo_final = resultado_revisao.get("conteudo_revisado", conteudo_inicial)
 
     print(f"\n{separador}")
