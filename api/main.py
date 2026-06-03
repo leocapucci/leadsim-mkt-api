@@ -13,6 +13,9 @@ load_dotenv()
 
 app = FastAPI()
 
+from api.routes.aprovacao import router as aprovacao_router
+app.include_router(aprovacao_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://leadsim-beauty.vercel.app", "http://localhost:3000"],
