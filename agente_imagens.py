@@ -132,13 +132,13 @@ Inclua apenas os formatos solicitados: {', '.join(formatos)}"""
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model": "gpt-image-2",
+                    "model": "dall-e-3",
                     "prompt": prompt,
                     "n": 1,
                     "size": size,
                     "quality": "auto"
                 },
-                timeout=200
+                timeout=120
             )
 
             if response.status_code == 200:
