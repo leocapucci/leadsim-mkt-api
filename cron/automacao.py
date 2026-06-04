@@ -57,7 +57,7 @@ def buscar_clinicas_ativas() -> list[dict]:
         headers=_sb_headers(),
         params={
             "campanha_ativa": "eq.true",
-            "select": "id,nome,whatsapp_responsavel,temas_campanha,formatos_campanha",
+            "select": "id,nome,whatsapp_responsavel,temas_campanha,formatos_campanha,especialidades,publico_alvo,tom_de_voz",
         },
     )
     res.raise_for_status()
@@ -121,12 +121,15 @@ def escolher_tema(temas: list[str], usados: set[str]) -> str | None:
 # CHAMADAS AO BACKEND
 # ─────────────────────────────────────────
 
-def criar_campanha(tema: str, formatos: list[str], clinica_id: str) -> str:
+def criar_campanha(tema: str, formatos: list[str], clinica_id: str, perfil_clinica: dict = None) -> str:
     """Inicia a campanha e retorna job_id."""
+    body = {"tema": tema, "formatos": formatos, "clinica_id": clinica_id}
+    if perfil_clinica:
+        body["perfil_clinica"] = perfil_clinica
     res = requests.post(
         f"{API_BASE}/campanha",
         headers={"x-api-key": API_KEY, "Content-Type": "application/json"},
-        json={"tema": tema, "formatos": formatos, "clinica_id": clinica_id},
+        json=body,
         timeout=30,
     )
     res.raise_for_status()
@@ -229,6 +232,12 @@ def run_automacao():
         tel      = clinica.get("whatsapp_responsavel", "")
         temas    = clinica.get("temas_campanha") or []
         formatos = clinica.get("formatos_campanha") or ["instagram", "whatsapp"]
+        perfil_clinica = {
+            "nome": nome,
+            "especialidades": clinica.get("especialidades", ""),
+            "publico_alvo":   clinica.get("publico_alvo", ""),
+            "tom_de_voz":     clinica.get("tom_de_voz", ""),
+        }
 
         print(f"[{nome}]")
 
@@ -246,7 +255,7 @@ def run_automacao():
 
         job_id = None
         try:
-            job_id = criar_campanha(tema, formatos, cid)
+            job_id = criar_campanha(tema, formatos, cid, perfil_clinica)
             print(f"  Job criado: {job_id}")
 
             job = aguardar_conclusao(job_id)

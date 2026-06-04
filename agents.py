@@ -73,7 +73,7 @@ class Copywriter(LeadSimAgent):
             backstory="Você é copywriter especializado em marketing de saúde estética e procedimentos de harmonização facial. Domina a linguagem do público que busca procedimentos premium, sabe equilibrar aspiração com credibilidade médica e conhece as restrições do CFM para publicidade na área de saúde."
         )
 
-    def gerar_conteudo(self, briefing: str, formatos: list[str] = None) -> dict:
+    def gerar_conteudo(self, briefing: str, formatos: list[str] = None, perfil_clinica: dict = None) -> dict:
         """
         Gera conteúdo em múltiplos formatos a partir de um briefing.
         formatos: lista de ['instagram', 'email', 'whatsapp', 'stories']
@@ -95,10 +95,21 @@ class Copywriter(LeadSimAgent):
             for f in formatos
         ])
 
+        perfil_bloco = ""
+        if perfil_clinica:
+            perfil_bloco = f"""
+PERFIL DA CLÍNICA:
+Clínica: {perfil_clinica.get('nome', '')}
+Especialidades: {perfil_clinica.get('especialidades', '')}
+Público-alvo: {perfil_clinica.get('publico_alvo', '')}
+Tom de voz: {perfil_clinica.get('tom_de_voz', '')}
+Gere o conteúdo respeitando exatamente esse tom de voz e focando nessas especialidades para esse público.
+"""
+
         task = f"""Com base no briefing abaixo, crie o seguinte conteúdo de marketing para clínicas de harmonização facial:
 
 {instrucoes_selecionadas}
-
+{perfil_bloco}
 IMPORTANTE:
 - Nunca prometa resultados garantidos (restrição CFM)
 - Use linguagem que valoriza a expertise do médico/clínica
@@ -148,7 +159,7 @@ class Revisor(LeadSimAgent):
             "relevancia": "O conteúdo é pertinente ao momento do mercado e ao público-alvo.",
         }
 
-    def revisar(self, conteudo: str, briefing: str = "") -> dict:
+    def revisar(self, conteudo: str, briefing: str = "", perfil_clinica: dict = None) -> dict:
         """
         Revisa o conteúdo. Retorna:
         - aprovado: bool
@@ -163,11 +174,22 @@ class Revisor(LeadSimAgent):
             for k, v in self.criterios.items()
         ])
 
+        perfil_bloco = ""
+        if perfil_clinica:
+            perfil_bloco = f"""
+PERFIL DA CLÍNICA:
+Clínica: {perfil_clinica.get('nome', '')}
+Especialidades: {perfil_clinica.get('especialidades', '')}
+Público-alvo: {perfil_clinica.get('publico_alvo', '')}
+Tom de voz: {perfil_clinica.get('tom_de_voz', '')}
+Avalie se o conteúdo está adequado a esse tom de voz e a esse público-alvo.
+"""
+
         task = f"""Revise o conteúdo de marketing abaixo com critério rigoroso.
 
 CRITÉRIOS DE AVALIAÇÃO:
 {criterios_texto}
-
+{perfil_bloco}
 {"BRIEFING ORIGINAL:" + chr(10) + briefing if briefing else ""}
 
 CONTEÚDO PARA REVISÃO:
@@ -205,7 +227,7 @@ Avalie cada critério, identifique problemas, e entregue a versão revisada comp
 
         return resultado
 
-    def revisar_com_reescrita(self, conteudo: str, briefing: str = "", max_tentativas: int = 2) -> dict:
+    def revisar_com_reescrita(self, conteudo: str, briefing: str = "", max_tentativas: int = 2, perfil_clinica: dict = None) -> dict:
         """
         Loop de revisão: se reprovado, pede reescrita ao Copywriter
         e revisa novamente. Retorna resultado final.
@@ -213,7 +235,7 @@ Avalie cada critério, identifique problemas, e entregue a versão revisada comp
         copywriter = Copywriter()
 
         tentativa = 1
-        resultado = self.revisar(conteudo, briefing)
+        resultado = self.revisar(conteudo, briefing, perfil_clinica)
 
         while not resultado.get("aprovado") and tentativa <= max_tentativas:
             print(f"\n🔄 Revisor → reprovado (score {resultado.get('score')}). Tentativa {tentativa}/{max_tentativas}")
@@ -239,7 +261,7 @@ CONTEÚDO ORIGINAL:
 Entregue o conteúdo completamente reescrito, corrigindo todos os problemas apontados."""
 
             conteudo = copywriter.run(reescrita_task)
-            resultado = self.revisar(conteudo, briefing)
+            resultado = self.revisar(conteudo, briefing, perfil_clinica)
             tentativa += 1
 
         resultado["tentativas"] = tentativa
