@@ -70,7 +70,7 @@ async def _rodar_pipeline(job_id: str, tema: str, formatos: list[str], clinica_i
             "status": "concluido",
             "briefing": resultado["briefing"],
             "conteudo_final": resultado["conteudo_final"],
-            "score": resultado["meta"]["score_final"],
+            "score": int(resultado["meta"]["score_final"]),
             "aprovado": resultado["meta"]["aprovado"],
             "notas_revisao": resultado["notas_revisao"],
             "tentativas": resultado["meta"]["tentativas"],

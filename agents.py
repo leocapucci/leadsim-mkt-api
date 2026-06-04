@@ -198,9 +198,13 @@ Retorne EXATAMENTE neste formato JSON (sem markdown, sem explicações fora do J
         try:
             import json, re
             # Remove possível markdown code block
-            clean = re.sub(r"```json|```", "", resultado_raw).strip()
+            clean = re.sub(r"```(?:json)?", "", resultado_raw).strip().rstrip("`").strip()
             # Remove backticks em torno de valores numéricos (ex: "score": `6` → "score": 6)
             clean = re.sub(r":\s*`(\d+(?:\.\d+)?)`", r": \1", clean)
+            # Extrai o objeto JSON se vier embutido em texto
+            match = re.search(r'\{[\s\S]*\}', clean)
+            if match:
+                clean = match.group(0)
             resultado = json.loads(clean)
         except Exception:
             # Se falhar o parse, retorna estrutura manual
