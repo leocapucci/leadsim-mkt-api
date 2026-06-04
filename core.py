@@ -133,6 +133,30 @@ Quando receber uma tarefa, execute-a de forma completa e entregue o resultado fi
         self.history.append({"role": "assistant", "content": result})
         return result
 
+    def run_structured(self, task: str, schema: dict, tool_name: str = "output") -> dict:
+        """Executa tarefa e força saída JSON via tool_use — sem necessidade de parsear texto."""
+        self.history.append({"role": "user", "content": task})
+
+        response = client.messages.create(
+            model=MODEL,
+            max_tokens=4096,
+            system=self.system_prompt,
+            messages=self.history,
+            tools=[{
+                "name": tool_name,
+                "description": "Submete o resultado estruturado.",
+                "input_schema": schema,
+            }],
+            tool_choice={"type": "tool", "name": tool_name},
+        )
+
+        for block in response.content:
+            if block.type == "tool_use":
+                self.history.append({"role": "assistant", "content": response.content})
+                return block.input
+
+        raise ValueError("Nenhum bloco tool_use na resposta")
+
     def reset(self):
         """Limpa o histórico de conversa (nova campanha)."""
         self.history = []

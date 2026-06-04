@@ -173,48 +173,34 @@ CRITÉRIOS DE AVALIAÇÃO:
 CONTEÚDO PARA REVISÃO:
 {conteudo}
 
----
+Avalie cada critério, identifique problemas, e entregue a versão revisada completa do conteúdo."""
 
-Retorne EXATAMENTE neste formato JSON (sem markdown, sem explicações fora do JSON):
+        schema = {
+            "type": "object",
+            "properties": {
+                "aprovado":          {"type": "boolean", "description": "true se score >= 7"},
+                "score":             {"type": "integer", "minimum": 0, "maximum": 10},
+                "problemas":         {"type": "array", "items": {"type": "string"}},
+                "sugestoes":         {"type": "array", "items": {"type": "string"}},
+                "conteudo_revisado": {"type": "string", "description": "Conteúdo completo revisado"},
+                "notas_revisao":     {"type": "string"},
+            },
+            "required": ["aprovado", "score", "problemas", "sugestoes", "conteudo_revisado", "notas_revisao"],
+        }
 
-{{
-  "aprovado": true/false,
-  "score": 8,
-  "problemas": [
-    "Problema 1 encontrado",
-    "Problema 2 encontrado"
-  ],
-  "sugestoes": [
-    "Sugestão de melhoria 1",
-    "Sugestão de melhoria 2"
-  ],
-  "conteudo_revisado": "versão corrigida do conteúdo completo aqui — mesmo que aprovado, inclua com pequenas melhorias",
-  "notas_revisao": "comentário geral sobre a qualidade do conteúdo"
-}}"""
-
-        resultado_raw = self.run(task)
-
-        # Tenta parsear o JSON
         try:
-            import json, re
-            # Remove possível markdown code block
-            clean = re.sub(r"```(?:json)?", "", resultado_raw).strip().rstrip("`").strip()
-            # Remove backticks em torno de valores numéricos (ex: "score": `6` → "score": 6)
-            clean = re.sub(r":\s*`(\d+(?:\.\d+)?)`", r": \1", clean)
-            # Extrai o objeto JSON se vier embutido em texto
-            match = re.search(r'\{[\s\S]*\}', clean)
-            if match:
-                clean = match.group(0)
-            resultado = json.loads(clean)
-        except Exception:
-            # Se falhar o parse, retorna estrutura manual
+            resultado = self.run_structured(task, schema, tool_name="submeter_revisao")
+            # Garantir tipos corretos
+            resultado["score"] = int(resultado.get("score", 0))
+            resultado["aprovado"] = bool(resultado.get("aprovado", False))
+        except Exception as e:
             resultado = {
                 "aprovado": False,
                 "score": 0,
-                "problemas": ["Erro ao parsear resposta do revisor"],
+                "problemas": [f"Erro na revisão estruturada: {e}"],
                 "sugestoes": [],
                 "conteudo_revisado": conteudo,
-                "notas_revisao": resultado_raw
+                "notas_revisao": str(e),
             }
 
         return resultado
