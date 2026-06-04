@@ -111,7 +111,7 @@ Diretrizes da marca LeadSim:
 
 Quando receber uma tarefa, execute-a de forma completa e entregue o resultado final diretamente, sem perguntas desnecessárias."""
 
-    def run(self, task: str, context: str = "") -> str:
+    def run(self, task: str, context: str = "", max_tokens: int = 4096) -> str:
         """
         Executa uma tarefa. O contexto pode conter resultados
         de agentes anteriores no pipeline.
@@ -124,7 +124,7 @@ Quando receber uma tarefa, execute-a de forma completa e entregue o resultado fi
 
         response = client.messages.create(
             model=MODEL,
-            max_tokens=1500,
+            max_tokens=max_tokens,
             system=self.system_prompt,
             messages=self.history
         )
