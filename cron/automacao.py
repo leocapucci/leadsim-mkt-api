@@ -28,9 +28,11 @@ SUPABASE_URL       = os.getenv("SUPABASE_URL")
 SUPABASE_KEY       = os.getenv("SUPABASE_KEY")
 API_BASE           = os.getenv("API_BASE_URL", "https://leadsim-mkt-api.onrender.com")
 API_KEY            = os.getenv("LEADSIM_INTERNAL_KEY", "leadsim-dev-key")
-EVOLUTION_URL      = os.getenv("EVOLUTION_API_URL", "http://localhost:8080")
-EVOLUTION_KEY      = os.getenv("EVOLUTION_API_KEY", "")
-EVOLUTION_INSTANCE = os.getenv("EVOLUTION_INSTANCE", "chronos")
+# EVOLUTION_URL      = os.getenv("EVOLUTION_API_URL", "http://localhost:8080")
+# EVOLUTION_KEY      = os.getenv("EVOLUTION_API_KEY", "")
+# EVOLUTION_INSTANCE = os.getenv("EVOLUTION_INSTANCE", "chronos")
+WHATSAPP_TOKEN    = os.getenv("WHATSAPP_TOKEN", "")
+WHATSAPP_PHONE_ID = os.getenv("WHATSAPP_PHONE_ID", "")
 FRONTEND_URL       = "https://leadsim-beauty.vercel.app"
 
 POLL_INTERVAL = 10    # segundos entre polls
@@ -171,26 +173,39 @@ def gerar_imagens(job_id: str) -> None:
 # ─────────────────────────────────────────
 
 def enviar_whatsapp(telefone: str, clinica_nome: str, tema: str, conteudo: str, job_id: str) -> bool:
-    primeiras_linhas = "\n".join(conteudo.strip().splitlines()[:3])
-    link = f"{FRONTEND_URL}/aprovar/{job_id}"
+    if not WHATSAPP_TOKEN or not WHATSAPP_PHONE_ID:
+        print("  [!] WHATSAPP_TOKEN ou WHATSAPP_PHONE_ID não configurados")
+        return False
 
+    aprovacao_url = f"https://leadsim-mkt-api.onrender.com/campanha/aprovar/{job_id}"
     mensagem = (
-        f"*{clinica_nome}* — Nova campanha gerada!\n\n"
-        f"📌 Tema: {tema}\n\n"
-        f"{primeiras_linhas}\n"
-        f"...\n\n"
-        f"🔗 Veja o conteúdo completo e aprove:\n{link}\n\n"
-        f"Responda *SIM* para aprovar ou *NÃO* para reprovar."
+        f"🎯 *LeadSim Agente MKT*\n\n"
+        f"Nova campanha gerada para *{clinica_nome}*\n"
+        f"Tema: {tema}\n\n"
+        f"Acesse para aprovar ou reprovar:\n{aprovacao_url}"
     )
 
     try:
-        res = requests.post(
-            f"{EVOLUTION_URL}/message/sendText/{EVOLUTION_INSTANCE}",
-            headers={"apikey": EVOLUTION_KEY, "Content-Type": "application/json"},
-            json={"number": telefone, "text": mensagem},
-            timeout=15,
+        response = requests.post(
+            f"https://graph.facebook.com/v19.0/{WHATSAPP_PHONE_ID}/messages",
+            headers={
+                "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "messaging_product": "whatsapp",
+                "to": telefone,
+                "type": "text",
+                "text": {"body": mensagem}
+            },
+            timeout=30
         )
-        return res.ok
+        if response.status_code == 200:
+            print(f"  WhatsApp ✓ enviado → {telefone}")
+            return True
+        else:
+            print(f"  [x] Erro WhatsApp: {response.status_code} - {response.text}")
+            return False
     except Exception as e:
         print(f"  [!] Erro ao enviar WhatsApp para {telefone}: {e}")
         return False
