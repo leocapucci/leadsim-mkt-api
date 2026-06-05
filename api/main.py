@@ -180,14 +180,20 @@ async def gerar_imagens_campanha(job_id: str, background_tasks: BackgroundTasks,
 async def testar_automacao(x_api_key: str = Header(None)):
     verificar_api_key(x_api_key)
     import io, contextlib
+    import cron.automacao as _automacao
     from cron.automacao import run_automacao
     buffer = io.StringIO()
+    # Desabilita geração de imagens em testes manuais para não consumir crédito OpenAI
+    _original_gerar_imagens = _automacao.gerar_imagens
+    _automacao.gerar_imagens = lambda job_id: print("  [teste] geração de imagens desabilitada")
     try:
         with contextlib.redirect_stdout(buffer):
             await asyncio.to_thread(run_automacao)
         return {"status": "ok", "log": buffer.getvalue()}
     except Exception as e:
         return {"status": "erro", "log": buffer.getvalue(), "erro": str(e)}
+    finally:
+        _automacao.gerar_imagens = _original_gerar_imagens
 
 
 @app.get("/campanha/{campanha_id}")

@@ -11,6 +11,8 @@ Fluxo:
 """
 
 import os
+import base64
+import uuid
 import json
 import requests
 from core import LeadSimAgent
@@ -117,11 +119,14 @@ Inclua apenas os formatos solicitados: {', '.join(formatos)}"""
 
         return prompts
 
-    def gerar_imagem(self, prompt: str, size: str = "1024x1024") -> str | None:
-        """Gera uma imagem via DALL-E 3 e retorna a URL."""
-        api_key = os.getenv("OPENAI_API_KEY")
+    def gerar_imagem(self, prompt: str, size: str = "1024x1024", file_name: str = None) -> str | None:
+        """Gera imagem via gpt-image-1, faz upload para Supabase Storage e retorna URL pública."""
+        api_key      = os.getenv("OPENAI_API_KEY")
+        supabase_url = os.getenv("SUPABASE_URL")
+        supabase_key = os.getenv("SUPABASE_KEY")
+
         if not api_key:
-            print("  [!] OPENAI_API_KEY nao configurada — pulando imagens")
+            print("  [!] OPENAI_API_KEY não configurada — pulando imagens")
             return None
 
         try:
@@ -141,14 +146,39 @@ Inclua apenas os formatos solicitados: {', '.join(formatos)}"""
                 timeout=120
             )
 
-            if response.status_code == 200:
-                url = response.json()["data"][0]["url"]
-                print("  [ok] imagem gerada")
-                return url
-            else:
+            if response.status_code != 200:
                 error = response.json().get("error", {}).get("message", "Erro desconhecido")
-                print(f"  [x] Erro DALL-E: {error}")
+                print(f"  [x] Erro gpt-image-1: {error}")
                 return None
+
+            b64_data  = response.json()["data"][0]["b64_json"]
+            img_bytes = base64.b64decode(b64_data)
+
+            if not supabase_url or not supabase_key:
+                print("  [!] SUPABASE_URL/KEY não configuradas — imagem gerada mas não salva")
+                return None
+
+            if not file_name:
+                file_name = f"{uuid.uuid4()}.png"
+
+            upload_res = requests.post(
+                f"{supabase_url}/storage/v1/object/imagens-campanha/{file_name}",
+                headers={
+                    "apikey":        supabase_key,
+                    "Authorization": f"Bearer {supabase_key}",
+                    "Content-Type":  "image/png",
+                },
+                data=img_bytes,
+                timeout=30,
+            )
+
+            if not upload_res.ok:
+                print(f"  [x] Erro upload Supabase Storage: {upload_res.text}")
+                return None
+
+            public_url = f"{supabase_url}/storage/v1/object/public/imagens-campanha/{file_name}"
+            print("  [ok] imagem gerada e salva no Storage")
+            return public_url
 
         except Exception as e:
             print(f"  [x] Erro ao gerar imagem: {e}")
