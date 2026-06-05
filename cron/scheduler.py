@@ -47,6 +47,15 @@ def _job_publicador():
         logger.error(f"[scheduler] Erro em run_publicador: {e}")
 
 
+def _job_analista():
+    logger.info("[scheduler] Verificando métricas 48h...")
+    try:
+        from cron.analista import run_analista
+        run_analista()
+    except Exception as e:
+        logger.error(f"[scheduler] Erro em run_analista: {e}")
+
+
 def start_scheduler() -> BackgroundScheduler:
     global _scheduler
 
@@ -101,8 +110,17 @@ def start_scheduler() -> BackgroundScheduler:
         replace_existing=True,
     )
 
+    # Analista — a cada 1 hora
+    _scheduler.add_job(
+        _job_analista,
+        trigger=IntervalTrigger(hours=1),
+        id="analista_1h",
+        name="Analista Métricas 48h",
+        replace_existing=True,
+    )
+
     _scheduler.start()
-    logger.info("[scheduler] APScheduler iniciado com 5 jobs agendados (4 automação + 1 publicador).")
+    logger.info("[scheduler] APScheduler iniciado com 6 jobs agendados (4 automação + 1 publicador + 1 analista).")
     return _scheduler
 
 
