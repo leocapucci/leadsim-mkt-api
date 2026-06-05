@@ -57,7 +57,7 @@ def buscar_clinicas_ativas() -> list[dict]:
         headers=_sb_headers(),
         params={
             "campanha_ativa": "eq.true",
-            "select": "id,nome,whatsapp_responsavel,temas_campanha,formatos_campanha,especialidades,publico_alvo,tom_de_voz",
+            "select": "id,nome,whatsapp_responsavel,temas_campanha,formatos_campanha,especialidades,publico_alvo,tom_de_voz,vertical",
         },
     )
     res.raise_for_status()
@@ -121,9 +121,9 @@ def escolher_tema(temas: list[str], usados: set[str]) -> str | None:
 # CHAMADAS AO BACKEND
 # ─────────────────────────────────────────
 
-def criar_campanha(tema: str, formatos: list[str], clinica_id: str, perfil_clinica: dict = None) -> str:
+def criar_campanha(tema: str, formatos: list[str], clinica_id: str, perfil_clinica: dict = None, vertical: str = "estetica") -> str:
     """Inicia a campanha e retorna job_id."""
-    body = {"tema": tema, "formatos": formatos, "clinica_id": clinica_id}
+    body = {"tema": tema, "formatos": formatos, "clinica_id": clinica_id, "vertical": vertical}
     if perfil_clinica:
         body["perfil_clinica"] = perfil_clinica
     res = requests.post(
@@ -231,9 +231,10 @@ def run_automacao():
         nome     = clinica["nome"]
         tel      = clinica.get("whatsapp_responsavel", "")
         temas    = clinica.get("temas_campanha") or []
-        formatos = clinica.get("formatos_campanha") or ["instagram", "whatsapp"]
+        formatos  = clinica.get("formatos_campanha") or ["instagram", "whatsapp"]
+        vertical  = clinica.get("vertical") or "estetica"
         perfil_clinica = {
-            "nome": nome,
+            "nome":           nome,
             "especialidades": clinica.get("especialidades", ""),
             "publico_alvo":   clinica.get("publico_alvo", ""),
             "tom_de_voz":     clinica.get("tom_de_voz", ""),
@@ -255,7 +256,7 @@ def run_automacao():
 
         job_id = None
         try:
-            job_id = criar_campanha(tema, formatos, cid, perfil_clinica)
+            job_id = criar_campanha(tema, formatos, cid, perfil_clinica, vertical)
             print(f"  Job criado: {job_id}")
 
             job = aguardar_conclusao(job_id)

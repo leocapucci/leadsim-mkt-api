@@ -15,24 +15,49 @@ from core import LeadSimAgent, web_search, save_to_memory, load_from_memory
 
 class Pesquisador(LeadSimAgent):
 
-    def __init__(self):
+    def __init__(self, vertical: str = "estetica"):
+        self.vertical = vertical
         super().__init__(
             role="Agente Pesquisador",
             goal="Levantar inteligência de mercado sobre o segmento de estética e harmonização facial para embasar campanhas do LeadSim Beauty.",
             backstory="Você é especialista em análise de mercado de saúde estética no Brasil. Conhece as principais clínicas, procedimentos em alta, sazonalidade do setor e comportamento de consumo do público de harmonização facial."
         )
 
+    @property
+    def system_prompt(self) -> str:
+        if self.vertical == "politico":
+            return "Você é um especialista em comunicação política e gestão pública brasileira. Pesquise sobre o tema considerando o contexto municipal brasileiro, realizações de gestão, obras públicas, serviços à população e agenda política local."
+        return super().system_prompt
+
     def pesquisar_tendencias(self, tema: str) -> str:
         """Pesquisa tendências e contexto de mercado para um tema."""
         print(f"\n🔍 Pesquisador → buscando: {tema}")
 
-        # Busca 1: tendências do setor
-        tendencias = web_search(f"tendências {tema} clínicas estética Brasil 2025")
+        if self.vertical == "politico":
+            tendencias = web_search(f"gestão pública {tema} prefeitura realizações obras 2024 2025")
+            conteudo   = web_search(f"comunicação política {tema} redes sociais engajamento cidadãos")
+        else:
+            tendencias = web_search(f"tendências {tema} clínicas estética Brasil 2025")
+            conteudo   = web_search(f"conteúdo marketing {tema} Instagram engajamento estética")
 
-        # Busca 2: conteúdo que performa nas redes
-        conteudo = web_search(f"conteúdo marketing {tema} Instagram engajamento estética")
+        if self.vertical == "politico":
+            task = f"""Analise as informações abaixo e produza um briefing estruturado para o tema de gestão pública: "{tema}"
 
-        task = f"""Analise as informações abaixo e produza um briefing de mercado estruturado para o tema: "{tema}"
+DADOS COLETADOS:
+Contexto de gestão:
+{tendencias}
+
+Comunicação e engajamento:
+{conteudo}
+
+Entregue um briefing com:
+1. **Contexto político/administrativo** (2-3 pontos mais relevantes)
+2. **Oportunidades de comunicação** (o que a população quer ouvir)
+3. **Ângulos de conteúdo** (3-5 ganchos para posts sobre realizações)
+4. **Tom recomendado** (como comunicar ao cidadão)
+5. **Palavras-chave e hashtags** (top 10 para o tema)"""
+        else:
+            task = f"""Analise as informações abaixo e produza um briefing de mercado estruturado para o tema: "{tema}"
 
 DADOS COLETADOS:
 Tendências do setor:
@@ -66,12 +91,19 @@ Entregue um briefing com:
 
 class Copywriter(LeadSimAgent):
 
-    def __init__(self):
+    def __init__(self, vertical: str = "estetica"):
+        self.vertical = vertical
         super().__init__(
             role="Agente Copywriter",
             goal="Criar conteúdo persuasivo e autêntico para clínicas de harmonização facial — posts, e-mails e scripts de WhatsApp que convertem.",
             backstory="Você é copywriter especializado em marketing de saúde estética e procedimentos de harmonização facial. Domina a linguagem do público que busca procedimentos premium, sabe equilibrar aspiração com credibilidade médica e conhece as restrições do CFM para publicidade na área de saúde."
         )
+
+    @property
+    def system_prompt(self) -> str:
+        if self.vertical == "politico":
+            return "Você é um especialista em comunicação política de gestão pública. Crie conteúdo que destaque realizações, obras e serviços do gestor público para a população. Tom: próximo do cidadão, direto, sem juridiquês, inspirador. NUNCA crie conteúdo de ataque a adversários, fake news ou conteúdo eleitoral de campanha. Foque em gestão e realizações concretas."
+        return super().system_prompt
 
     def gerar_conteudo(self, briefing: str, formatos: list[str] = None, perfil_clinica: dict = None) -> dict:
         """
@@ -143,21 +175,30 @@ BRIEFING:
 
 class Revisor(LeadSimAgent):
 
-    def __init__(self):
+    def __init__(self, vertical: str = "estetica"):
+        self.vertical = vertical
         super().__init__(
             role="Agente Revisor",
             goal="Garantir que todo conteúdo gerado seja de alta qualidade, esteja alinhado com a marca LeadSim, respeite as normas do CFM e seja aprovado antes de qualquer publicação.",
             backstory="Você é editor sênior especializado em comunicação médica e marketing de saúde estética. Conhece profundamente as normas do CFM para publicidade médica, os padrões de comunicação premium, e tem olhar aguçado para inconsistências de tom, promessas indevidas e oportunidades de melhoria."
         )
 
-        # Critérios de avaliação — ajustáveis
-        self.criterios = {
-            "tom_marca": "Sofisticado, acolhedor, especialista. Evita excessos de gírias ou promessas agressivas.",
-            "conformidade_cfm": "Sem promessas de resultados garantidos. Sem 'antes e depois' explícito no texto. Foco na expertise.",
-            "clareza_cta": "O próximo passo para o leitor deve ser óbvio e não-invasivo.",
-            "autenticidade": "Linguagem natural, não robótica. Parece escrito por um humano especialista.",
-            "relevancia": "O conteúdo é pertinente ao momento do mercado e ao público-alvo.",
-        }
+        if self.vertical == "politico":
+            self.criterios = {
+                "tom_publico": "Próximo do cidadão, direto, sem juridiquês, inspirador e acessível.",
+                "foco_gestao": "Conteúdo é de gestão e realizações concretas — NÃO é de campanha eleitoral.",
+                "sem_ataques": "Ausência total de ataques a adversários, críticas políticas ou conteúdo negativo.",
+                "clareza_cta": "O próximo passo para o cidadão deve ser claro (acompanhar, conhecer, participar).",
+                "relevancia":  "O conteúdo é pertinente às realizações e ao público-alvo do gestor.",
+            }
+        else:
+            self.criterios = {
+                "tom_marca": "Sofisticado, acolhedor, especialista. Evita excessos de gírias ou promessas agressivas.",
+                "conformidade_cfm": "Sem promessas de resultados garantidos. Sem 'antes e depois' explícito no texto. Foco na expertise.",
+                "clareza_cta": "O próximo passo para o leitor deve ser óbvio e não-invasivo.",
+                "autenticidade": "Linguagem natural, não robótica. Parece escrito por um humano especialista.",
+                "relevancia": "O conteúdo é pertinente ao momento do mercado e ao público-alvo.",
+            }
 
     def revisar(self, conteudo: str, briefing: str = "", perfil_clinica: dict = None) -> dict:
         """
@@ -232,7 +273,7 @@ Avalie cada critério, identifique problemas, e entregue a versão revisada comp
         Loop de revisão: se reprovado, pede reescrita ao Copywriter
         e revisa novamente. Retorna resultado final.
         """
-        copywriter = Copywriter()
+        copywriter = Copywriter(vertical=self.vertical)
 
         tentativa = 1
         resultado = self.revisar(conteudo, briefing, perfil_clinica)
