@@ -184,7 +184,7 @@ Inclua apenas os formatos solicitados: {', '.join(formatos)}"""
             print(f"  [x] Erro ao gerar imagem: {e}")
             return None
 
-    def gerar_para_campanha(self, briefing: str, formatos: list[str]) -> dict:
+    def gerar_para_campanha(self, briefing: str, formatos: list[str], job_id: str = None) -> dict:
         """Pipeline completo: cria prompts e gera imagens para todos os formatos."""
         print(f"\n[imagens] iniciando geração para {len(formatos)} formato(s)")
 
@@ -195,6 +195,7 @@ Inclua apenas os formatos solicitados: {', '.join(formatos)}"""
         prompts = self.criar_prompts(briefing, formatos_com_imagem)
 
         imagens = {}
+        primeira_url_salva = False
         for formato in formatos_com_imagem:
             if formato not in prompts:
                 continue
@@ -209,6 +210,24 @@ Inclua apenas os formatos solicitados: {', '.join(formatos)}"""
                     "prompt_usado": prompts[formato],
                     "size": config["size"]
                 }
+                # Salva a primeira URL no campo imagem_url do job
+                if job_id and not primeira_url_salva:
+                    supabase_url = os.getenv("SUPABASE_URL")
+                    supabase_key = os.getenv("SUPABASE_KEY")
+                    if supabase_url and supabase_key:
+                        requests.patch(
+                            f"{supabase_url}/rest/v1/jobs_campanha",
+                            headers={
+                                "apikey":        supabase_key,
+                                "Authorization": f"Bearer {supabase_key}",
+                                "Content-Type":  "application/json",
+                                "Prefer":        "return=minimal",
+                            },
+                            params={"id": f"eq.{job_id}"},
+                            json={"imagem_url": url},
+                            timeout=10,
+                        )
+                        primeira_url_salva = True
 
         print(f"  {len(imagens)}/{len(formatos_com_imagem)} imagens geradas")
         return imagens
