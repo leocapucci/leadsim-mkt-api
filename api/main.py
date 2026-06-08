@@ -152,7 +152,7 @@ async def _gerar_e_salvar_imagens(job_id: str, briefing: str, formatos: list[str
     try:
         from agente_imagens import AgenteImagens
         agente = AgenteImagens()
-        imagens = await asyncio.to_thread(agente.gerar_para_campanha, briefing, formatos)
+        imagens = await asyncio.to_thread(agente.gerar_para_campanha, briefing, formatos, job_id)
         _get_supabase().table("jobs_campanha").update({"imagens": imagens}).eq("id", job_id).execute()
     except Exception as e:
         print(f"[imagens] erro no background para job {job_id}: {e}")
