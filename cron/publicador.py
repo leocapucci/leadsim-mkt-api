@@ -181,7 +181,7 @@ def run_publicador():
         nome_clinica = clinica.get("nome", "")
 
         if not account_id or not access_token:
-            logger.warning(f"  [{nome_clinica}] Sem credenciais Instagram — pulando.")
+            logger.warning(f"  [{nome_clinica}] Instagram não configurado — pulando publicação")
             continue
 
         # Busca URL da imagem (formato instagram ou primeiro disponível)
